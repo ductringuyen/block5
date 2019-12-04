@@ -1,0 +1,3 @@
+/Users/ductringuyen/CLionProjects/Block5Test/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/ductringuyen/CLionProjects/Block5Test/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/ductringuyen/CLionProjects/Block5Test/cmake-build-debug/CMakeFiles/peer.dir

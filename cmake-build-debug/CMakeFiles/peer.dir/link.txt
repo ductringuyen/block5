@@ -1,0 +1,1 @@
+clang -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/peer.dir/peer.c.o CMakeFiles/peer.dir/hashing.c.o CMakeFiles/peer.dir/dht.c.o CMakeFiles/peer.dir/queue.c.o  -o peer 
