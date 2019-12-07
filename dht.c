@@ -70,7 +70,7 @@ int ringHashing(unsigned char* key) {
 };
 
 
-//TODO: check if ID unique
+//TODO: check if ID unique: dont need to check it. Siehe Aufgabenblatt. Delete this
 int checkID(){
 
 }
@@ -169,12 +169,8 @@ int notify(node x){
     }
     return NOTIFY;
 }
-//TODO:join
-void join(){
 
-}
-
-int checkPeer(int nodeID, int prevID, int nextID, int hashValue) {
+int checkPeer(unsigned int nodeID, unsigned int prevID, unsigned int nextID, int hashValue) {
 	if ((hashValue <= nodeID && hashValue > prevID) || (prevID > nodeID && hashValue > prevID) || (prevID > nodeID && hashValue < nodeID)) {
 		return thisPeer;
 	} else if ((hashValue <= nextID && hashValue > nodeID) || (nextID < nodeID && hashValue > nodeID) || (nextID < nodeID && hashValue < nextID)) {
@@ -183,7 +179,7 @@ int checkPeer(int nodeID, int prevID, int nextID, int hashValue) {
 	return unknownPeer;
 }
 
-//TODO: decode for join,notify,stabilize
+//TODO: decode for join,notify,stabilize : DONE
 int firstByteDecode(unsigned char* firstByte, unsigned int* opt) {
 	if (*firstByte == 129) {
 		return LOOKUP;
@@ -191,6 +187,15 @@ int firstByteDecode(unsigned char* firstByte, unsigned int* opt) {
 	else if (*firstByte == 130) {
 		return REPLY;
 	}
+    else if (*firstByte == 132) {
+        return STABILIZE;
+    }
+    else if (*firstByte == 136) {
+        return NOTIFY;
+    }
+    else if (*firstByte == 144) {
+        return JOIN;
+    }
 	else if (*firstByte < 8){
 		*opt = (int) *firstByte;
 		return HASH;
@@ -201,14 +206,14 @@ int firstByteDecode(unsigned char* firstByte, unsigned int* opt) {
 void rv_memcpy(void* dst, void* src, unsigned int len) {
   unsigned char* dstByte = (unsigned char*) dst;
   unsigned char* srcByte = (unsigned char*) src;
-  for (int i = 0; i < len; i++) {
+  for (unsigned int i = 0; i < len; i++) {
     dstByte[i] = srcByte[len-1-i];
   }
 }
 
 void hashHeaderAnalize(unsigned char* header, unsigned int* keyLen, unsigned int* valueLen) {
-	*keyLen = 256*(header[0]) + header[1];
-	*valueLen = 16777216*(header[2]) + 65536*(header[3]) + 256*(header[4]) + header[5];
+	*keyLen = (header[0]<<8) + header[1];
+	*valueLen = (header[2]<<24) + (header[3]<<16) + (header[4]<<8) + header[5];
 }
 
 unsigned char* getHashRequest(int socketfd, unsigned char* firstByte, unsigned char** key, unsigned char** value, unsigned int* keyLen, unsigned int* valueLen){
@@ -225,12 +230,12 @@ unsigned char* getHashRequest(int socketfd, unsigned char* firstByte, unsigned c
         perror("Error in receiving\n");
         exit(1);
     }
-    hashHeaderAnalize(header, keyLen, valueLen);
+    hashHeaderAnalize(header, keyLen, valueLen); //TODO beter use ntoh. But not so important
 
     // Get the full equest
     data = malloc(*keyLen + *valueLen);
     while(1) {
-       	msglen = recv(socketfd,data + written, 512, 0);
+       	msglen = recv(socketfd,data + written, *keyLen+*valueLen - written, 0);
        	if (msglen == -1) {
            	continue;
        	}
@@ -271,7 +276,7 @@ unsigned char* peerHashing(hashable** hTab, unsigned int opt, unsigned int keyLe
        	if (hashElem == NULL) {
             resLen = 7;
             response = calloc(resLen,1);
-            response[0] = ACK + GET;            // set Ack bit of the response
+            response[0] = GET;            // set Ack bit of the response
         } else {
             valueLen = hashElem->valueLen;
             resLen = 7 + hashElem->keyLen + hashElem->valueLen;
@@ -325,8 +330,8 @@ unsigned char* getPeerRequest(int socketfd, unsigned char* firstByte) {
     return request;
 }
 
-char* itoa(int num, char *str) {
-  sprintf(str, "%d", num);
+char* uitoa(unsigned int num, char *str) {
+  sprintf(str, "%u", num);
   return str;
 }
 

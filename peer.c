@@ -23,13 +23,13 @@
 #define LOOKUP 129
 #define REPLY 130
 //TODO: arrange new Befehl
-/*
-#define STABILIZE 131
-#define NOTIFY 132
-#define JOIN 133
- */
-#define FINAL 131 //hier muss auch geändert werden
-#define HASH 132 //
+
+#define STABILIZE 132
+#define NOTIFY 136
+#define JOIN 144
+
+#define FINAL 1001 //hier muss auch geändert werden. DONE
+#define HASH 1002 //
 
 
 
@@ -54,10 +54,12 @@ unsigned int nextID;
 
 int nodeIP;
 int nextIP;
+int knownIP;
 
 unsigned int nodePort;
 unsigned int prevPort;
 unsigned int nextPort;
+unsigned int knownPort;
 
 int actual_HashRequest_sent = YES;
 
@@ -66,33 +68,35 @@ int hashSocket; // Socket to the sender of the Hash Request
 
 int main(int argc, char** argv){
 
-    if (argc != 10) {
+    if (argc < 3) {
         printf("Not enough arguments\n");
         exit(1);
     }
 
     // For the Select function 
-    int control;           				// What kind of Connector, Clients or Peers?
+    int control=0;           				// What kind of Connector, Clients or Peers?
     fd_set master;    					// master file descriptor list
     fd_set read_fds;  					// temp file descriptor list for select()
     int fdmax;        					// maximum file descriptor number 		
 
     
     // Peer and Neighbor Info 
-    nodeID = atoi(argv[1]);
-    prevID = atoi(argv[4]);
-    nextID = atoi(argv[7]);
+    if (argc>3) nodeID = atoi(argv[3]);
+    //prevID = atoi(argv[4]);           //TODO have to move this definition somewhere else
+    //nextID = atoi(argv[7]);
     
-    nodePort = atoi(argv[3]);
-    prevPort = atoi(argv[6]);
-    nextPort = atoi(argv[9]);
+    nodePort = atoi(argv[2]);
+    if (argc==6) knownPort = atoi(argv[5]);
+    //prevPort = atoi(argv[6]);         //TODO have to move this definition somewhere else
+    //nextPort = atoi(argv[9]);
+
 
     /*-------------------------------------------- GET PEER INFO --------------------------------------------------*/
     struct addrinfo hints, *servinfo;
     int status;
     
     memset(&hints, 0, sizeof hints);    	   // hints is empty 
-    int listener, nextSocket, newSocketFD, hashSocket, firstPeerSocket, chosenPeerSocket;
+    int listener, nextSocket, newSocketFD, firstPeerSocket, chosenPeerSocket;
     struct sockaddr_storage addrInfo;    	   // connector's addresponses Info
     socklen_t addrSize;
 
@@ -108,12 +112,35 @@ int main(int argc, char** argv){
         exit(1);
     }
 
+    if (argc==6) {    //TODO Create Join to Chord-Ring: DONE
+/*    // Get the known IP //maybe dont need this, createConnection is enough. Dont delete though
+    status = getaddrinfo(argv[4], argv[5], &hints, &servinfo);
+    if (status != 0) {
+        printf("getaddrinfo error: %s\n",gai_strerror(status));
+        exit(1);
+    }
+    struct sockaddr_in *knownIPsock = (struct sockaddr_in*) servinfo->ai_addr;
+    knownIP = *(int*)(&knownIPsock->sin_addr); //////////// Where magic happen /////////////////
+    freeaddrinfo(servinfo);
+    // Got the known IP*/
+
+    unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
+    unsigned char* joinRequest = createPeerRequest(nullHashID,*argv[3],*argv[4],*argv[5],JOIN);
+    // Connect to the known peer
+    int knownPeerSocket = createConnection(argv[4], argv[5],NULL);
+
+    if (send(knownPeerSocket,joinRequest,11,0) == -1) {
+        perror("Error in sending\n");
+    }
+    //TODO just test it later: free(nullHashID);
+    }
+
     while(1) {
         /*
         //Peer got only IP and Port information
         if(argv[1],argv[2]) {
             nodeID->newRing = malloc(sizeof());
-
+        DONE: in line 82. Here no need malloc, because we dont save any data yet. Delete this comment
         } */
     	// Create the Listener Socket
     	listener = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -270,20 +297,21 @@ int main(int argc, char** argv){
                         
                         if (checkPeer(nodeID,prevID,nextID,hashValue) == nextPeer) {
                             //printf("Peer %d: my next pal %d is responsible for the request\n", nodeID,nextID);
-                            unsigned char* hashID = malloc(2);
-                            memcpy(hashID,peerRequest+1,2);
+//                            unsigned char* hashID = malloc(2); //Unnoetig. Doubled declaration
+//                            memcpy(hashID,peerRequest+1,2);
                             
                             int firstPeerIP;
                             memcpy(&firstPeerIP,peerRequest+5,4);
                             char ipString[INET_ADDRSTRLEN];
                             inet_ntop(AF_INET, &firstPeerIP, ipString, sizeof(ipString));
 
-                            unsigned int firstPeerPort;
+                            //inet_ntop and uitoa=convert IP & Port to String
+                            unsigned int firstPeerPort=0;
                             rv_memcpy(&firstPeerPort,peerRequest+9,2);
-                            char portString[20];
-                            itoa(firstPeerPort,portString);
+                            char portString[6];
+                            uitoa(firstPeerPort,portString);
                             
-                            // Get the next IP
+/*                            // Get the next IP //not efficient. Changed to code-block below
                             status = getaddrinfo(argv[8], argv[9], &hints, &servinfo);
                             if (status != 0) {
                                 printf("getaddrinfo error: %s\n",gai_strerror(status));
@@ -292,7 +320,16 @@ int main(int argc, char** argv){
                             struct sockaddr_in *ipv4 = (struct sockaddr_in*) servinfo->ai_addr;
                             nextIP = *(int*)(&ipv4->sin_addr); //////////// Where magic happen /////////////////
                             freeaddrinfo(servinfo);
-                            // Got the next IP
+                            // Got the next IP*/
+
+
+                            //use a generic socket address to store everything
+                            struct sockaddr saddr;
+                            //cast generic socket to an inet socket
+                            struct sockaddr_in * saddr_in = (struct sockaddr_in *) &saddr;
+                            //Convert IP address into inet address stored in sockaddr
+                            inet_aton(argv[8], &(saddr_in->sin_addr));
+                            nextIP = *(int*)&(saddr_in->sin_addr);
 
                             peerRequest = createPeerRequest(hashID,nextID,nextIP,nextPort,REPLY);
                             // Connect to the first peer
@@ -300,7 +337,8 @@ int main(int argc, char** argv){
 
                             if (send(firstPeerSocket,peerRequest,11,0) == -1) {
                                 perror("Error in sending\n");
-                            }  
+                            }
+                            //TODO just test it later: free(hashID);
                         } else if (checkPeer(nodeID,prevID,nextID,hashValue) == unknownPeer) {
                             //printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);
                             nextSocket = createConnection(argv[8],argv[9],&nextIP);
@@ -319,10 +357,11 @@ int main(int argc, char** argv){
                         char ipString[INET_ADDRSTRLEN];
                         inet_ntop(AF_INET, &chosenPeerIP, ipString, sizeof(ipString));
                         //printf("Peer %d: IP of the chosen One: %s\n",nodeID,ipString);
-                        unsigned int chosenPeerPort;
+
+                        unsigned int chosenPeerPort=0;
                         rv_memcpy(&chosenPeerPort,peerRequest+9,2);
-                        char portString[20];
-                        itoa(chosenPeerPort,portString);
+                        char portString[6];
+                        uitoa(chosenPeerPort,portString);
                         //printf("Peer %d: Port of the chosen One: %s\n",nodeID,portString);
                         
                         //connect and send Hash Request to the chosen one
@@ -355,6 +394,9 @@ int main(int argc, char** argv){
                         FD_CLR(hashSocket, &master);
                         close(i);
                         FD_CLR(i, &master);
+
+                    } else if (control == JOIN) {
+
                     }
 
                 }

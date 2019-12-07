@@ -1,6 +1,6 @@
 int ringHashing(unsigned char* key);
 
-int checkPeer(int nodeID, int prevID, int nextID, int hashValue);
+int checkPeer(unsigned int nodeID, unsigned int prevID, unsigned int nextID, int hashValue);
 
 int firstByteDecode(unsigned char* firstByte, unsigned int* opt);
 
@@ -16,7 +16,7 @@ unsigned char* createPeerRequest(unsigned char* hashID, unsigned int nodeID, uns
 
 unsigned char* getPeerRequest(int socketfd, unsigned char* firstByte);
 
-char* itoa(int num, char *str);
+char* uitoa(unsigned int num, char *str);
 
 int createConnection(char* addr, char* port, int* IP);
 
