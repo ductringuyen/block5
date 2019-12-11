@@ -51,9 +51,11 @@ unsigned char* value;
 unsigned int nodeID;
 unsigned int prevID;
 unsigned int nextID;
+unsigned int newID;
 
 int nodeIP;
 int nextIP;
+int prevIP;
 int knownIP;
 
 unsigned int nodePort;
@@ -113,35 +115,27 @@ int main(int argc, char** argv){
     }
 
     if (argc==6) {    //TODO Create Join to Chord-Ring: DONE
-/*    // Get the known IP //maybe dont need this, createConnection is enough. Dont delete though
-    status = getaddrinfo(argv[4], argv[5], &hints, &servinfo);
-    if (status != 0) {
-        printf("getaddrinfo error: %s\n",gai_strerror(status));
-        exit(1);
-    }
-    struct sockaddr_in *knownIPsock = (struct sockaddr_in*) servinfo->ai_addr;
-    knownIP = *(int*)(&knownIPsock->sin_addr); //////////// Where magic happen /////////////////
-    freeaddrinfo(servinfo);
-    // Got the known IP*/
 
-    unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
-    unsigned char* joinRequest = createPeerRequest(nullHashID,*argv[3],*argv[4],*argv[5],JOIN);
-    // Connect to the known peer
-    int knownPeerSocket = createConnection(argv[4], argv[5],NULL);
+        //use a generic socket address to store everything
+        struct sockaddr saddr;
+        //cast generic socket to an inet socket
+        struct sockaddr_in * saddr_in = (struct sockaddr_in *) &saddr;
+        //Convert IP address into inet address stored in sockaddr
+        inet_aton(argv[1], &(saddr_in->sin_addr));
+        nodeIP = *(int*)&(saddr_in->sin_addr);
 
-    if (send(knownPeerSocket,joinRequest,11,0) == -1) {
-        perror("Error in sending\n");
-    }
-    //TODO just test it later: free(nullHashID);
+        unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
+        unsigned char* joinRequest = createPeerRequest(nullHashID,nodeID,nodeIP,nodePort,JOIN);
+        // Connect to the known peer
+        int knownPeerSocket = createConnection(argv[4], argv[5],NULL);
+
+        if (send(knownPeerSocket,joinRequest,11,0) == -1) {
+            perror("Error in sending\n");
+        }
+        //TODO just test it later: free(nullHashID);
     }
 
     while(1) {
-        /*
-        //Peer got only IP and Port information
-        if(argv[1],argv[2]) {
-            nodeID->newRing = malloc(sizeof());
-        DONE: in line 82. Here no need malloc, because we dont save any data yet. Delete this comment
-        } */
     	// Create the Listener Socket
     	listener = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
    		if(listener == -1) {
@@ -396,7 +390,20 @@ int main(int argc, char** argv){
                         FD_CLR(i, &master);
 
                     } else if (control == JOIN) {
+                        //get full request
+                        //printf("Peer %d: received a JOIN Request\n", nodeID);
+                        unsigned char* peerRequest;
+                        peerRequest = getPeerRequest(i,firstByte);
+                        //unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
+                        rv_memcpy(&newID,peerRequest+3,2);
+                        if (newID<nextID && newID<nodeID){ //then you are my new prev
+                                prevID=newID;
+                                memcpy(&prevIP,peerRequest+5,4);
+                                rv_memcpy(&prevPort,peerRequest+9,2);
+                            }
+                        else { //you aren't my prev
 
+                        }
                     }
 
                 }
