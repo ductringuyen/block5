@@ -471,17 +471,8 @@ int main(int argc, char** argv){
 
                         rv_memcpy(&newID,peerRequest+3,2);
 
-                        //reply with notify
-                        //read my new prev IP & Port from recv
-                        memcpy(&notifyIP,peerRequest+5,4);
-                        char ipString[INET_ADDRSTRLEN];
-                        inet_ntop(AF_INET, &notifyIP, ipString, sizeof(ipString));
-
-                        //inet_ntop and uitoa=convert IP & Port to String
-                        rv_memcpy(&notifyPort,peerRequest+9,2);
-                        char portString[6];
-                        uitoa(notifyPort,portString);
-
+                        //reply with notify.
+                        //Use socket prevSocket if i reply to my prevID, otherwise CREATE new socket (notifySocket)
                         if (newID==prevID){
                             peerRequest = createPeerRequest(NULL, prevID, prevIP, prevPort, NOTIFY);
                             //prevSocket = createConnection(ipString, portString, NULL);
@@ -489,10 +480,21 @@ int main(int argc, char** argv){
                                 perror("Error in sending\n");
                             }
                         }
-                        else if (newID>prevID) {
-                            prevID = newID;
-                            prevIP = notifyIP;
-                            prevPort = notifyPort;
+                        else {
+                            if (newID>prevID) {
+                                prevID = newID;
+                                prevIP = notifyIP;
+                                prevPort = notifyPort;
+                            }
+                            //read my new prev IP & Port from recv
+                            memcpy(&notifyIP,peerRequest+5,4);
+                            char ipString[INET_ADDRSTRLEN];
+                            inet_ntop(AF_INET, &notifyIP, ipString, sizeof(ipString));
+
+                            //inet_ntop and uitoa=convert IP & Port to String
+                            rv_memcpy(&notifyPort,peerRequest+9,2);
+                            char portString[6];
+                            uitoa(notifyPort,portString);
 
                             peerRequest = createPeerRequest(NULL, prevID, prevIP, prevPort, NOTIFY);
                             // Connect to the new prev peer
