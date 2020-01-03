@@ -21,12 +21,12 @@
 #define LOOKUP 129
 #define REPLY 130
 
-#define STABILIZE 131
-#define NOTIFY 132
-#define JOIN 133
+#define STABILIZE 132
+#define NOTIFY 136
+#define JOIN 144
 
-#define FINAL 131
-#define HASH 132
+#define FINAL 1001 //TODO
+#define HASH 1002
 
 #define unknownPeer 0
 #define thisPeer 1
@@ -69,107 +69,6 @@ int ringHashing(unsigned char* key) {
   }
   return hashValue;
 };
-
-
-//TODO: check if ID unique: dont need to check it. Siehe Aufgabenblatt. Delete this
-int checkID(){
-
-}
-
-//TODO: peers as clients
-void client(char buffer[256])
-{
-    int sockfd, n;
-    struct sockaddr_in serverAddr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM,0);
-    if(sockfd < 0)
-    {
-        fprintf(stderr,"Error opening socket\n");
-        exit(1);
-    }
-
-    bzero((char *) &serverAddr, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(targetPort);
-    serverAddr.sin_addr.s_addr = inet_addr(targetIP);  //////////Where new magic happen///////
-    if(connect(sockfd,(struct sockaddr *) &serverAddr,sizeof(serverAddr)) < 0)
-    {
-        fprintf(stderr,"CLIENT: ERROR, Host with ip => [%s] and port => [%d] Network Error.\n",targetIP, targetPort);
-        exit(1);
-    }
-
-    n = write(sockfd,buffer, 256);
-
-
-    if (n < 0)
-    {
-        fprintf(stderr,"CLIENT: ERROR writing to socket\n");
-    }
-
-    bzero(buffer,256);
-    n = read(sockfd,buffer,255);
-
-    if (n < 0)
-        fprintf(stderr, "CLIENT: ERROR reading from socket");
-    close(sockfd);
-    return;
-
-}
-//TODO: stabilize
-void stabilize(){
-    node x;
-    while(1){
-        if(self.id != successor.id || self.id != fingerTable[1].id){
-            strcpy(targetIP, successor.ip);
-            targetPort = successor.port;
-            printf("STABILIZE: Target IP %s and port %d\nsuccessor ip %s and successor port %d \n",targetIP,targetPort, successor.ip, successor.port);
-            for(int i=0; i<255;++i){
-                predBuffer[i] = '\0';
-            }
-            strcpy(predBuffer, "findPredecessor");
-            client(predBuffer);
-
-            char arr[20];
-            int i = 0;
-            while(predBuffer[i] != ' ')
-            {
-                arr[i] = predBuffer[i];i++;
-            }
-            arr[i] = '\0';
-            x.id = atoi(arr);
-
-            for(int i=0; i<255;++i) {
-                predBuffer[i] = '\0';
-            }
-            if(x.port != 0 && inBetween(x.id,self.id,successor.id,0))
-            {
-                successor.id = x.id;
-                fingerTable[1].id = x.id;
-                strcpy(successor.ip, x.ip);
-                strcpy(fingerTable[1].ip,x.ip);
-                successor.port = x.port;
-                fingerTable[1].port = x.port;
-                printf("STABILIZE: successor updated to %s:%d\n",successor.ip,successor.port);
-            }
-            //TODO:call for notify
-
-        }
-        }
-    }
-
-//TODO: notify
-int notify(node x){
-    if(self.id == x.id) return;
-    if((predecessor.port == 0) ||(inBetween(x.id, predecessor.id,self.id,0))){
-        predecessor.id = x.id;
-        strncpy(predecessor.ip,x.ip,16);
-        predecessor.port = x.port;
-        printf("NOTIFY: Setting Predecessor to %s:%d\n", predecessor.ip, predecessor.port);
-        fflush(stdout);
-    }
-    return NOTIFY;
-}
 
 int checkPeer(unsigned int nodeID, unsigned int prevID, unsigned int nextID, int hashValue) {
 	if ((hashValue <= nodeID && hashValue > prevID) || (prevID > nodeID && hashValue > prevID) || (prevID > nodeID && hashValue < nodeID)) {
@@ -302,20 +201,24 @@ unsigned char* peerHashing(hashable** hTab, unsigned int opt, unsigned int keyLe
 
 unsigned char* createPeerRequest(unsigned char* hashID, unsigned int nodeID, unsigned int nodeIP, unsigned int nodePort, int operation) {
 	unsigned char *request = malloc(11);
-	*request = operation;
+	*request = operation;printf("Building Req:%d  ", operation);
+	printf("ID:%d  ", nodeID);printf("IP:%d  ", nodeIP);printf("Port:%d\n", nodePort);
+    nodeID=htons(nodeID);
+    //nodeIP=htonl(nodeIP);printf("CPR IP:%d\n", nodeIP);
+    nodePort=htons(nodePort);
 	memcpy(request+1,hashID,2);
-	rv_memcpy(request+3,&nodeID,2);
+	memcpy(request+3,&nodeID,2);
 	memcpy(request+5,&nodeIP,4);
-	rv_memcpy(request+9,&nodePort,2);
+	memcpy(request+9,&nodePort,2);
 	return request;
 }
 
-//TODO: create finger table
+/*//TODO: create finger table
 void create_finger_table(char *my_addr){
     int my_pos=0;
     double N = floor(log(N));
 
-}
+}*/
 
 unsigned char* getPeerRequest(int socketfd, unsigned char* firstByte) {
 	unsigned char* request = malloc(11);
@@ -338,7 +241,7 @@ char* uitoa(unsigned int num, char *str) {
 
 int createConnection(char* addr, char* port, int* IP) {
     struct addrinfo hints, *servinfo;
-    int status;
+    int status, yes=1;
 
     
     memset(&hints, 0, sizeof hints);          // hints is empty 
@@ -359,13 +262,17 @@ int createConnection(char* addr, char* port, int* IP) {
     while(1) {
         Socket = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
         if(Socket == -1) {
-            perror("Failed to create a Socket\n");
+            perror("Failed to create a Socket");
             continue;
         }
+/*        if (setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+            perror("setsockopt");
+            exit(1);
+        }*/
         // IF SOCKET IS CREATED, TRY TO CONNECT TO THE SERVER
         if (connect(Socket, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
             close(Socket);
-            perror("Problems with creating connection\n");
+            perror("Problems with creating connection");
             continue;
         }
         break; // sucessfully connect
