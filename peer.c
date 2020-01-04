@@ -29,6 +29,9 @@
 #define NOTIFY 136
 #define JOIN 144
 
+#define FINGER 192
+#define FACK 160
+
 #define FINAL 1001 //TODO hier muss auch geändert werden.
 #define HASH 1002 //
 
@@ -58,13 +61,16 @@ int nodeIP;
 int nextIP;
 int prevIP;
 int notifyIP;
+int fingerIP;
 
 unsigned int nodePort;
 unsigned int prevPort;
 unsigned int nextPort;
 unsigned int notifyPort;
+unsigned int fingerPort;
 
-unsigned char hashID0[2]={0,0};
+uint8_t hashID0[2]={0,0};
+uint16_t fTable[16];
 
 int actual_HashRequest_sent = YES;
 
@@ -105,7 +111,7 @@ int main(int argc, char** argv){
     int status;
 
     memset(&hints, 0, sizeof hints);    	   // hints is empty
-    int listener, nextSocket, newSocketFD, firstPeerSocket, chosenPeerSocket, prevSocket=0, notifySocket, yes=1;
+    int listener, nextSocket, newSocketFD, firstPeerSocket, chosenPeerSocket, prevSocket=0, notifySocket, fingerSocket, yes=1, x, a;
     struct sockaddr_storage addrInfo;    	   // connector's addresponses Info
     socklen_t addrSize;
 
@@ -127,7 +133,7 @@ int main(int argc, char** argv){
         //unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
         unsigned char* joinRequest = createPeerRequest(hashID0,nodeID,nodeIP,nodePort,JOIN);
         // Connect to the known peer
-        int knownPeerSocket = createConnection(argv[4], argv[5],NULL);
+        int knownPeerSocket = createConnection(argv[4], argv[5]);
 
         if (send(knownPeerSocket,joinRequest,11,0) == -1) {
             perror("Error in sending\n");
@@ -313,14 +319,14 @@ int main(int argc, char** argv){
 
                             peerRequest = createPeerRequest(hashID, nextID, nextIP, nextPort, REPLY);
                             // Connect to the first peer
-                            firstPeerSocket = createConnection(ipString, portString, NULL);
+                            firstPeerSocket = createConnection(ipString, portString);
 
                             if (send(firstPeerSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
                             //TODO just test it later: free(hashID);
                         } else if (checkPeer(nodeID, prevID, nextID, hashValue) == unknownPeer) {
-                            //printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);
+                            printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);
 
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
@@ -347,7 +353,7 @@ int main(int argc, char** argv){
                         //printf("Peer %d: Port of the chosen One: %s\n",nodeID,portString);
 
                         //connect and send Hash Request to the chosen one
-                        chosenPeerSocket = createConnection(ipString, portString, NULL);
+                        chosenPeerSocket = createConnection(ipString, portString);
                         if (send(chosenPeerSocket, hashRequest, 7 + keyLen + valueLen, 0) == -1) {
                             perror("Error in sending\n");
                         }
@@ -383,7 +389,6 @@ int main(int argc, char** argv){
                         //printf("Peer %d: received a JOIN Request\n", nodeID);
                         unsigned char *peerRequest;
                         peerRequest = getPeerRequest(i, firstByte);
-                        //unsigned char* nullHashID = calloc(2, 1);   //create two bytes of memory
                         memcpy(&newID, peerRequest + 3, 2);
                         newID=ntohs(newID);
 
@@ -405,7 +410,7 @@ int main(int argc, char** argv){
                             //reply with notify
                             peerRequest = createPeerRequest(hashID0, prevID, prevIP, prevPort, NOTIFY);
                             // Connect to the new prev peer
-                            prevSocket = createConnection(ipString, portString, NULL);
+                            prevSocket = createConnection(ipString, portString);
 
                             if (send(prevSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
@@ -486,7 +491,7 @@ int main(int argc, char** argv){
                                 uitoa(prevPort, portString);
                                 printf("Notif. Port:%d  %s\n", notifyPort, portString);
 
-                                prevSocket = createConnection(ipString, portString, NULL);
+                                prevSocket = createConnection(ipString, portString);
                             }
 
 
@@ -520,11 +525,98 @@ int main(int argc, char** argv){
 
                             peerRequest = createPeerRequest(hashID0, prevID, prevIP, prevPort, NOTIFY);
                             // Connect to the new prev peer
-                            notifySocket = createConnection(ipString, portString, NULL);
+                            notifySocket = createConnection(ipString, portString);
 
                             if (send(notifySocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
+                        }
+                    } else if (control == FINGER) {
+                        unsigned char *peerRequest;
+                        peerRequest = getPeerRequest(i, firstByte);
+
+                        for (a=0; a<15; a++){
+                            x=nodeID+power(2, a);
+                            if (x>=65536) fTable[a]=x-65536;
+                            else fTable[a]=x;
+                            if (x>=nextID){
+
+                                printf("lookup finger %d",x);
+                                peerRequest = createPeerRequest((unsigned char*)&fTable[i], nodeID, nodeIP, nodePort, LOOKUP);
+                                if (send(nextSocket, peerRequest, 11, 0) == -1) {
+                                    perror("Error in sending\n");
+                                }
+
+                                //Begin to recieving Reply of Lookup. Just copy paste from while(1){...} zeile 187
+
+                                read_fds = master;
+                                if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
+                                    perror("Select");
+                                    exit(4);
+                                }
+
+                                // run through the existing connections looking for data to read
+                                for(int i = 0; i <= fdmax; i++) {
+                                    if (FD_ISSET(i, &read_fds)) { // we got one!!
+                                        if (i == listener) {
+                                            // handle new connections
+                                            addrSize = sizeof(addrInfo);
+                                            newSocketFD = accept(listener,(struct sockaddr *)&addrInfo,&addrSize);
+                                            if (newSocketFD == -1) {
+                                                perror("Unacceptable");
+                                            } else {
+                                                FD_SET(newSocketFD, &master); // add to master set
+                                                if (newSocketFD > fdmax){     // keep track of the max
+                                                    fdmax = newSocketFD;
+                                                }
+                                            }
+                                        } else {
+                                            unsigned char *firstByte = malloc(1);
+                                            // handle data from a connector
+                                            int msglen = recv(i, firstByte, 1, 0);
+                                            if (msglen <= 0) {
+                                                perror("Error in receiving");
+                                                close(i);
+                                                FD_CLR(i, &master);
+                                            }
+                                            control = firstByteDecode(firstByte, &opt);
+                                            printf("Recv 1stByte=%d  ",control);
+
+                                            if (control == REPLY) {
+                                                printf("control == REPLY\n");
+                                                //get full request
+                                                //printf("Peer %d: received a REPLY Request\n", nodeID);
+                                                unsigned char *peerRequest;
+                                                peerRequest = getPeerRequest(i, firstByte);
+
+                                                //read NextID in PeerRequest
+                                                memcpy(&x, peerRequest + 3, 2);
+                                                fTable[a]=ntohs(x);
+                                            }}}}
+
+                            }
+
+                        }
+
+                        for(int loop = 0; loop < 10; loop++) printf("%d ", fTable[loop]);
+
+                        memcpy(&fingerIP, peerRequest + 5, 4);
+                        fingerIP=ntohl(fingerIP);printf("IP:%d  ", fingerIP);
+                        memcpy(&fingerPort, peerRequest + 9, 2);
+                        fingerPort=ntohs(fingerPort);
+
+                        char ipString[INET_ADDRSTRLEN];
+                        inet_ntop(AF_INET, &fingerIP, ipString, sizeof(ipString));
+                        printf("Finger IP:%d  %s  ",fingerIP, ipString);
+
+                        char portString[6];
+                        uitoa(fingerPort, portString);
+                        printf("Finger Port:%d  %s\n", fingerPort, portString);
+
+                        peerRequest = createPeerRequest(0, 0, 0, 0, FACK);
+                        fingerSocket = createConnection(ipString, portString);
+                        if (send(fingerSocket, peerRequest, 11, 0) == -1) {
+                            perror("Error in sending\n");
                         }
                     }
 
@@ -543,7 +635,7 @@ int main(int argc, char** argv){
 
                             unsigned char *peerRequest;
                             peerRequest = createPeerRequest(hashID0, nodeID, nodeIP, nodePort, STABILIZE);
-                            nextSocket = createConnection(ipString, portString, NULL);
+                            nextSocket = createConnection(ipString, portString);
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }

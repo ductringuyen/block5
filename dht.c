@@ -233,7 +233,7 @@ char* uitoa(unsigned int num, char *str) {
   return str;
 }
 
-int createConnection(char* addr, char* port, int* IP) {
+int createConnection(char* addr, char* port) {
     struct addrinfo hints, *servinfo;
     int status, yes=1;
 
@@ -271,11 +271,13 @@ int createConnection(char* addr, char* port, int* IP) {
         }
         break; // sucessfully connect
     }
-    // Get IP as a number
-    if (IP != NULL) {
-      struct sockaddr_in *ipv4 = (struct sockaddr_in*) servinfo->ai_addr;
-      *IP = *(int*)(&ipv4->sin_addr);
-    }
+
     freeaddrinfo(servinfo);
     return Socket;
+}
+
+int power(int x, unsigned int y) {
+    if (y == 0)        return 1;
+    else if (y%2 == 0) return power(x, y/2)*power(x, y/2);
+    else               return x*power(x, y/2)*power(x, y/2);
 }

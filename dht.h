@@ -16,4 +16,6 @@ unsigned char* getPeerRequest(int socketfd, unsigned char* firstByte);
 
 char* uitoa(unsigned int num, char *str);
 
-int createConnection(char* addr, char* port, int* IP);
+int createConnection(char* addr, char* port);
+
+int power(int x, unsigned int y);
