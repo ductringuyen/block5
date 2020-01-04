@@ -19,5 +19,3 @@ unsigned char* getPeerRequest(int socketfd, unsigned char* firstByte);
 char* uitoa(unsigned int num, char *str);
 
 int createConnection(char* addr, char* port, int* IP);
-
-void delay(int number_of_seconds);

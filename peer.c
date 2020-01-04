@@ -105,7 +105,7 @@ int main(int argc, char** argv){
     int status;
 
     memset(&hints, 0, sizeof hints);    	   // hints is empty
-    int listener, nextSocket, newSocketFD, firstPeerSocket, chosenPeerSocket, prevSocket, notifySocket, yes=1;
+    int listener, nextSocket, newSocketFD, firstPeerSocket, chosenPeerSocket, prevSocket=0, notifySocket, yes=1;
     struct sockaddr_storage addrInfo;    	   // connector's addresponses Info
     socklen_t addrSize;
 
@@ -507,7 +507,7 @@ int main(int argc, char** argv){
                             memcpy(&nextPort, peerRequest + 9, 2);
                             nextPort=ntohs(nextPort);
                         }
-
+                        sleep(1);
                     } else if (control == STABILIZE) {
                         printf("control == STABILIZE\n");
                         //get full request
@@ -520,8 +520,27 @@ int main(int argc, char** argv){
                         //reply with notify.
                         //Use socket prevSocket if i reply to my prevID, otherwise CREATE new socket (notifySocket)
                         if (newID == prevID) {
+                            if (prevSocket==0){ //if socket isnt exist yet, create one. Else use existing socket
+                                //read my new prev IP & Port from recv
+                                memcpy(&prevIP, peerRequest + 5, 4);
+                                //prevIP=ntohl(prevIP);
+                                char ipString[INET_ADDRSTRLEN];
+                                inet_ntop(AF_INET, &prevIP, ipString, sizeof(ipString));
+                                printf("Notif. IP:%d  %s  ",notifyIP, ipString);
+
+                                //inet_ntop and uitoa=convert IP & Port to String
+                                memcpy(&prevPort, peerRequest + 9, 2);
+                                prevPort=ntohs(prevPort);
+                                char portString[6];
+                                uitoa(prevPort, portString);
+                                printf("Notif. Port:%d  %s\n", notifyPort, portString);
+
+                                prevSocket = createConnection(ipString, portString, NULL);
+                            }
+
+
                             peerRequest = createPeerRequest(hashID0, prevID, prevIP, prevPort, NOTIFY);
-                            //prevSocket = createConnection(ipString, portString, NULL);
+
                             if (send(prevSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
@@ -556,11 +575,11 @@ int main(int argc, char** argv){
                                 perror("Error in sending\n");
                             }
                         }
+                        sleep(1);
                     }
 
 
                     //send stabilize every 2 sec. Doesnt matter if(control ==..)
-                    delay(2);
                     if (nextID!=-1){
                             printf("Stabilizing Now  ");
                             //create connection to known nextID
@@ -578,6 +597,7 @@ int main(int argc, char** argv){
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
+                        sleep(2);
                         }
                 }
             }
