@@ -103,14 +103,6 @@ int firstByteDecode(unsigned char* firstByte, unsigned int* opt) {
 	return FINAL;	
 }
 
-void rv_memcpy(void* dst, void* src, unsigned int len) {
-  unsigned char* dstByte = (unsigned char*) dst;
-  unsigned char* srcByte = (unsigned char*) src;
-  for (unsigned int i = 0; i < len; i++) {
-    dstByte[i] = srcByte[len-1-i];
-  }
-}
-
 void hashHeaderAnalize(unsigned char* header, unsigned int* keyLen, unsigned int* valueLen) {
 	*keyLen = (header[0]<<8) + header[1];
 	*valueLen = (header[2]<<24) + (header[3]<<16) + (header[4]<<8) + header[5];
@@ -182,8 +174,10 @@ unsigned char* peerHashing(hashable** hTab, unsigned int opt, unsigned int keyLe
             resLen = 7 + hashElem->keyLen + hashElem->valueLen;
             response = malloc(resLen);
             response[0] = ACK + GET;            // set Ack bit of the response
-            rv_memcpy(response + 1, &keyLen, 2);
-            rv_memcpy(response + 3, &valueLen, 4);
+            keyLen=htons(keyLen);
+            valueLen=htonl(valueLen);
+            memcpy(response + 1, &keyLen, 2);
+            memcpy(response + 3, &valueLen, 4);
             memcpy(response + 7,hashElem->hashKey,hashElem->keyLen);
             memcpy(response + 7 + hashElem->keyLen,hashElem->hashValue,hashElem->valueLen);
            }

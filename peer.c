@@ -246,10 +246,11 @@ int main(int argc, char** argv){
                         }
 
                         int hashValue = ringHashing(hashKey); //TODO consistent hashing
+                        printf("nodeID=%d  prevID=%d  nextID=%d  hashvalue=%d\n",nodeID,prevID,nextID,hashValue);
                         //printf("Peer %d: hashValue is %d\n", nodeID, hashValue);
                         if (checkPeer(nodeID, prevID, nextID, hashValue) ==
                             thisPeer) {        //TODO This peer is responsible for this Request
-                            //printf("Peer %d: I'm responsible for the request\n", nodeID); //We determine each peer using ringHashing()
+                            printf("Peer %d: I'm responsible for the request\n", nodeID); //We determine each peer using ringHashing()
                             unsigned char *response;
                             unsigned int responseLen;
                             response = peerHashing(&hTab, opt, keyLen, valueLen, key, value, &responseLen);
@@ -262,37 +263,24 @@ int main(int argc, char** argv){
                             FD_CLR(i, &master);
                         } else if (checkPeer(nodeID, prevID, nextID, hashValue) ==
                                    nextPeer) {   //TODO Next peer is responsible for this Request
-                            //printf("Peer %d: my next pal %d is responsible for the request\n", nodeID,nextID);
+                            printf("Peer %d: my next pal %d is responsible for the request\n", nodeID,nextID);
 
-/*                            char ipString[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &nextIP, ipString, sizeof(ipString));
-                            char portString[6];
-                            uitoa(nextPort,portString);
-
-                            nextSocket = createConnection(ipString,portString,NULL);
-                            */
                             if (send(nextSocket, hashRequest, 7 + keyLen + valueLen, 0) == -1) {
                                 perror("Error in sending\n");
                             }
 
                             FD_SET(nextSocket, &master); // add to master set
+                            FD_SET(nextSocket, &master); // add to master set
                             if (nextSocket > fdmax) {     // keep track of the max
                                 fdmax = nextSocket;
                             }
                         } else {                                                               //TODO unknown Peer
-                            //printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);                                          
+                            printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);
                             unsigned char *peerRequest;
                             //create and send LOOKUP Request
                             //printf("Peer %d: my IP is %d\n", nodeID, nodeIP);
                             peerRequest = createPeerRequest(hashKey, nodeID, nodeIP, nodePort, LOOKUP);
-/*
-                            char ipString[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &nextIP, ipString, sizeof(ipString));
-                            char portString[6];
-                            uitoa(nextPort,portString);
 
-                            nextSocket = createConnection(ipString,portString,NULL);
-                            */
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
@@ -300,18 +288,16 @@ int main(int argc, char** argv){
                     } else if (control == LOOKUP) {
                         printf("control == LOOKUP\n");
                         //get full request
-                        //printf("Peer %d: received a LOOKUP Request\n", nodeID);
+                        printf("Peer %d: received a LOOKUP Request\n", nodeID);
                         unsigned char *peerRequest;
                         peerRequest = getPeerRequest(i, firstByte);
                         unsigned char *hashID = malloc(2);
                         memcpy(hashID, peerRequest + 1, 2);
                         int hashValue = ringHashing(hashID);
-                        //printf("Peer %d: hashValue is %d\n", nodeID, hashValue);
-
-                        // There won't be the case of thisPeer with LOOKUP
+                        printf("Peer %d: hashValue is %d\n", nodeID, hashValue);
 
                         if (checkPeer(nodeID, prevID, nextID, hashValue) == nextPeer) {
-                            //printf("Peer %d: my next pal %d is responsible for the request\n", nodeID,nextID);
+                            printf("Peer %d: my next pal %d is responsible for the request\n", nodeID,nextID);
 
                             int firstPeerIP;
                             memcpy(&firstPeerIP, peerRequest + 5, 4);
@@ -320,30 +306,11 @@ int main(int argc, char** argv){
 
                             //inet_ntop and uitoa=convert IP & Port to String
                             unsigned int firstPeerPort = 0;
-                            rv_memcpy(&firstPeerPort, peerRequest + 9, 2);
+                            memcpy(&firstPeerPort, peerRequest + 9, 2);
+                            firstPeerPort=ntohs(firstPeerPort);
                             char portString[6];
                             uitoa(firstPeerPort, portString);
 
-/*                            // Get the next IP //not efficient. Changed to code-block below
-                            status = getaddrinfo(argv[8], argv[9], &hints, &servinfo);
-                            if (status != 0) {
-                                printf("getaddrinfo error: %s\n",gai_strerror(status));
-                                exit(1);
-                            }    
-                            struct sockaddr_in *ipv4 = (struct sockaddr_in*) servinfo->ai_addr;
-                            nextIP = *(int*)(&ipv4->sin_addr); //////////// Where magic happen /////////////////
-                            freeaddrinfo(servinfo);
-                            // Got the next IP
-
-
-                            //use a generic socket address to store everything
-                            struct sockaddr saddr;
-                            //cast generic socket to an inet socket
-                            struct sockaddr_in * saddr_in = (struct sockaddr_in *) &saddr;
-                            //Convert IP address into inet address stored in sockaddr
-                            inet_aton(argv[8], &(saddr_in->sin_addr));
-                            nextIP = *(int*)&(saddr_in->sin_addr);
-*/
                             peerRequest = createPeerRequest(hashID, nextID, nextIP, nextPort, REPLY);
                             // Connect to the first peer
                             firstPeerSocket = createConnection(ipString, portString, NULL);
@@ -355,13 +322,6 @@ int main(int argc, char** argv){
                         } else if (checkPeer(nodeID, prevID, nextID, hashValue) == unknownPeer) {
                             //printf("Peer %d: I dunno but I'll ask my next pal %d\n", nodeID,nextID);
 
-/*                            char ipString[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &nextIP, ipString, sizeof(ipString));
-                            char portString[6];
-                            uitoa(nextPort,portString);
-
-                            nextSocket = createConnection(ipString,portString,NULL);
-*/
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
                             }
@@ -380,7 +340,8 @@ int main(int argc, char** argv){
                         //printf("Peer %d: IP of the chosen One: %s\n",nodeID,ipString);
 
                         unsigned int chosenPeerPort = 0;
-                        rv_memcpy(&chosenPeerPort, peerRequest + 9, 2);
+                        memcpy(&chosenPeerPort, peerRequest + 9, 2);
+                        chosenPeerPort=ntohs(chosenPeerPort);
                         char portString[6];
                         uitoa(chosenPeerPort, portString);
                         //printf("Peer %d: Port of the chosen One: %s\n",nodeID,portString);
@@ -470,22 +431,13 @@ int main(int argc, char** argv){
                             printf("you are my first next.\n");
                             //NO reply with notify. Instead I will send stabilize to you now
                         }
-                        /*else if(prevID==-1 && newID<nodeID) {
+                        /*else if(prevID==-1 && newID<nodeID) { TODO make it a RING!!!
                             prevID=newID;
                         }*/
 
 
                         else { //you aren't my prev
                             //forward to next peer
-/*
-                            char ipString[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &nextIP, ipString, sizeof(ipString));
-
-                            char portString[6];
-                            uitoa(prevPort,portString);
-
-                            nextSocket = createConnection(ipString,portString,NULL);
-*/
 
                             if (send(nextSocket, peerRequest, 11, 0) == -1) {
                                 perror("Error in sending\n");
@@ -507,7 +459,6 @@ int main(int argc, char** argv){
                             memcpy(&nextPort, peerRequest + 9, 2);
                             nextPort=ntohs(nextPort);
                         }
-                        sleep(1);
                     } else if (control == STABILIZE) {
                         printf("control == STABILIZE\n");
                         //get full request
@@ -575,7 +526,6 @@ int main(int argc, char** argv){
                                 perror("Error in sending\n");
                             }
                         }
-                        sleep(1);
                     }
 
 

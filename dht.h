@@ -4,8 +4,6 @@ int checkPeer(unsigned int nodeID, unsigned int prevID, unsigned int nextID, int
 
 int firstByteDecode(unsigned char* firstByte, unsigned int* opt);
 
-void rv_memcpy(void* dst, void* src, unsigned int len);
-
 void hashHeaderAnalize(unsigned char* header, unsigned int* keyLen, unsigned int* valueLen);
 
 unsigned char* getHashRequest(int socketfd, unsigned char* firstByte, unsigned char** key,unsigned char** value,unsigned int* keyLen,unsigned int* valueLen);
