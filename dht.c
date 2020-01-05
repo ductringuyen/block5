@@ -25,6 +25,9 @@
 #define NOTIFY 136
 #define JOIN 144
 
+#define FINGER 192
+#define FACK 160
+
 #define FINAL 1001 //TODO
 #define HASH 1002
 
@@ -65,7 +68,7 @@ static int inBetween(int id, int start, int end, int inclusive)
 int ringHashing(unsigned char* key) {
   int hashValue = 0;
   for (int i = 0; i < 2; i++) {
-    hashValue += (int)(key[i]%80);
+    hashValue += (int)(key[i]<<(8*i));
   }
   return hashValue;
 };
@@ -96,6 +99,10 @@ int firstByteDecode(unsigned char* firstByte, unsigned int* opt) {
     else if (*firstByte == 144) {
         return JOIN;
     }
+    else if (*firstByte == 192) {
+        return FINGER;
+    }
+
 	else if (*firstByte < 8){
 		*opt = (int) *firstByte;
 		return HASH;

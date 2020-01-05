@@ -14,7 +14,7 @@ int is_in_the_queue(struct requestSocketQueue* queue, int socket) {
 
 int enqueue(struct requestSocketQueue* queue, int socket, unsigned char* firstByte) {
     if (queue->head == NULL) {
-        queue->head = malloc(sizeof(struct socketQueueElem*));
+        queue->head = malloc(sizeof(struct socketQueueElem*)*1000000);
         queue->head->socket = socket;
         queue->head->next = NULL;
         queue->head->firstByte = malloc(1);
